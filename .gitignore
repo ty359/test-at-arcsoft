@@ -2,3 +2,4 @@
 *.png
 *.bmp
 __pycache__/*
+*.txt

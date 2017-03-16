@@ -1,72 +1,39 @@
 import os
 import sys
+import cv2
+import random
 
+import predo
+
+from nn import *
 import numpy as np
 import tensorflow as tf
 
-class NN:
-  def __init__(sess, train=0.8):
-    self.loss = 0
-    self.TRAIN = train
-
-  def _get_variable(name, shape, wd=.0):
-    stddev = 1.0
-    for t in shape:
-      stddev /= t
-    stddev = stddev ** 0.5
-    ret = tf.get_variable(name=name, shape=shape, initializer=tf.truncated_normal_initializer(dtype=tf.float32, mean=0.0, stddev=stddev))
-    if wd != .0:
-      self.loss += wd * tf.nn.l2_loss(ret)
-    return ret
-
-  def fc(x, o_size=1, name='fc'):
-    with tf.variable_scope(name):
-      shape = x.get_shape().as_list()
-      batch = shape[0]
-      chans = 1
-      for i in shape[1:]:
-        chans *= i
-      x = tf.reshape(x, [batch, chans])
-      k = _get_variable('weights', [chans, o_size])
-      b = _get_variable('biases', [o_size])
-      return tf.nn.relu(tf.matmul(x, k) + b)
-
-  def pool(x, name='pool'):
-    with tf.variable_scope(name):
-      return tf.nn.max_pool(x, ksize=[1, 2, 2, 1], strides=[1, 2, 2, 1], padding='SAME')
-
-  def unpool(x, name='unpool'):
-    with tf.variable_scope(name):
-      shape = x.get_shape().as_list()
-      shape = [2*shape[1], 2*shape[2]]
-      return tf.image.resize_nearest_neighbor(x, shape, name=name)
-
-  def conv(x, o_size, name='conv', ksize=3):
-    with tf.variable_scope(name):
-      shape = x.get_shape().as_list()
-      k = _get_variable('weights', [ksize, ksize, shape[3], o_size])
-      b = _get_variable('biases', [shape[0], shape[1], shape[2], o_size])
-      return tf.nn.relu(tf.nn.conv2d(x, k, [1, 1, 1 ,1], 'SAME') + b)
-
-  def deconv(x, o_shape, name='deconv', ksize=4, stride=2):
-    pass
-
-  def norm(x, name='norm'):
-    return x
-
-  def gen_loss(x, y):
-    self.loss += tf.nn.softmax_cross_entropy_with_logits(logits=x, labels=y)
-
-  def dropout(x, name='dropout'):
-    with tf.variable_scope(name):
-      if self.TRAIN:
-        return tf.nn.dropout(x, self.TRAIN)
-      else:
-        return x
-
-  def layer_add(x, y, name='layer_add'):
-    with tf.variable_scope(name):
-      shape = x.get_shape().as_list()
-      kx = _get_variable('x_weights', shape)
-      ky = _get_variable('y_weights', shape)
-      return tf.nn.relu(kx * x + ky * y)
+def build(nn, reuse=False):
+  with tf.variable_scope('test1', reuse=reuse):
+    c1 = nn.conv(x, 4, 'conv1')
+    p1 = nn.pool(c1, 'pool1')
+    c2 = nn.conv(p1, 8, 'conv2')
+    p2 = nn.pool(c2, 'pool2')
+    c3 = nn.conv(p2, 16, 'conv3')
+    p3 = nn.pool(c3, 'pool3')
+    c4 = nn.conv(p3, 32, 'conv4')
+    p4 = nn.pool(c4, 'pool4')
+    c5_1 = nn.conv(p4, 64, 'conv5_1')
+    c5_2 = nn.conv(c5_1, 64, 'conv5_2')
+    p5 = nn.pool(c5_2, 'pool5')
+    c6 = nn.conv(p5, 128, 'conv6')
+    dc6 = nn.conv(c6, 64, 'deconv6')
+    up5 = nn.layer_add(nn.unpool(dc6, 'unpool5_tmp', shape=c5_2.get_shape().as_list()), c5_2, 'unpool5')
+    dc5_1 = nn.conv(up5, 32, 'deconv5_1')
+    dc5_2 = nn.conv(dc5_1, 32, 'deconv5_2')
+    up4 = nn.layer_add(nn.unpool(dc5_2, 'unpool4_tmp', shape=c4.get_shape().as_list()), c4, 'unpool4')
+    dc4 = nn.conv(up4, 16, 'deconv4')
+    up3 = nn.layer_add(nn.unpool(dc4, 'unpool3_tmp', shape=c3.get_shape().as_list()), c3, 'unpool3')
+    dc3 = nn.conv(up3, 8, 'deconv3')
+    up2 = nn.layer_add(nn.unpool(dc3, 'unpool2_tmp', shape=c2.get_shape().as_list()), c2, 'unpool2')
+    dc2 = nn.conv(up2, 4, 'deconv2')
+    up1 = nn.layer_add(nn.unpool(dc2, 'unpool1_tmp', shape=c1.get_shape().as_list()), c1, 'unpool1')
+    dc1 = nn.conv(up1, 3, 'deconv1')
+    nn.gen_loss(dc1, y)
+    return dc1

@@ -3,32 +3,31 @@ import sys
 import cv2
 import random
 
-from nn import *
 import numpy as np
 import tensorflow as tf
-from model import build
 
-imgfolder = 'data/src/'
+from predo import *
+import model
+
+imgfolder = 'data/fff2/src/'
 
 def check(img):
-	shape = img.shape
-	with tf.Graph().as_default():
-		with tf.Session() as sess:
-			_x = tf.placeholder(tf.float32, list(shape))
-			_y = tf.placeholder(tf.float32, list(shape))
+  shape = img.shape
+  w0 = 4
+  w1 = SHAPE[0] - shape[0] - w0
+  h0 = 4
+  h1 = SHAPE[1] - shape[1] - h0
+  img = cv2.copyMakeBorder(img, w0, w1, h0, h1, cv2.BORDER_REPLICATE)
+  return img, M.eval(np.stack([img]))[0]
 
-			nn = NN(sess)
+M = model.model256()
 
-			o = build(nn, _x, _y)
+M.build(1)
 
-			saver = tf.train.Saver()
-
-			saver.restore(sess, "training_models_orz/model.ckpt")
-
-			return o.eval(feed_dict={_x:img, _y:img})[0]
+M.init()
 
 for imgname in os.listdir(imgfolder):
-	ps = imgname.split('.')
-	if len(ps) == 2 and ps[1] == 'jpg':
-		o = check(np.stack([cv2.imread(imgfolder + imgname)]))
-		cv2.imwrite(imgfolder + ps[0] + '_out.png', o)
+  ps = imgname.split('.')
+  if len(ps) == 2 and ps[1] == 'jpg':
+    i, o = check(cv2.imread(imgfolder + imgname))
+    cv2.imwrite(imgfolder + ps[0] + '_out.png', i + (256 - o))

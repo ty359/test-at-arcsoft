@@ -11,19 +11,23 @@ from predo import *
 
 class model256:
   def __init__(self):
+    self.step = 0
     pass
 
-  def init(self, filename=None):
+  def init(self, filename=None, folder=None):
 
     self.saver = tf.train.Saver(keep_checkpoint_every_n_hours=1)
     self.sess = tf.InteractiveSession()
 
     if filename:
       self.saver.restore(filename)
-    elif tf.train.latest_checkpoint('training_models'):
-      self.saver.restore(self.sess, tf.train.latest_checkpoint('training_models'))
+    elif folder and tf.train.latest_checkpoint(folder):
+      self.saver.restore(self.sess, tf.train.latest_checkpoint(folder))
     else:
       self.sess.run(tf.global_variables_initializer())
+
+    self.summary = tf.summary.merge_all()
+    self.summary_writer = tf.summary.FileWriter('logs/', self.sess.graph)
 
 
   def build(self, batch_size=1, train_rate=1e-3):
@@ -76,12 +80,21 @@ class model256:
       self.loss = nn.LOSS + tf.nn.l2_loss(self.out - self.y)
       self.opt = tf.train.AdamOptimizer(train_rate).minimize(self.loss)
 
+# for tensorboard
+      tf.summary.scalar('loss', self.loss)
+
   
   def save(self, filename):
     self.saver.save(self.sess, filename)
 
   def train(self, x, y):
-    self.opt.run(feed_dict={self.x: x, self.y: y})
+    self.step += 1
+    self.sess.run([self.opt], feed_dict={self.x: x, self.y: y})
 
   def eval(self, x):
-    return self.out.eval(feed_dict={self.x: x})
+    o = self.out.eval(feed_dict={self.x: x})
+    return o
+
+  def log(self, x, y):
+    s = self.summary.eval(feed_dict={self.x: x, self.y: y})
+    self.summary_writer.add_summary(s, self.step)

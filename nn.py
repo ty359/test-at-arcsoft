@@ -14,6 +14,11 @@ def _get_variable(name, shape, wd=.0):
     stddev /= t
   stddev = stddev ** 0.5
   ret = tf.get_variable(name=name, shape=shape, initializer=tf.truncated_normal_initializer(dtype=tf.float32, mean=0.0, stddev=stddev))
+
+# for tensorboard
+  tf.summary.tensor_summary(name, ret)
+  tf.summary.scalar(name + 'mean', tf.reduce_mean(ret))
+
   if wd != .0:
     LOSS += wd * tf.nn.l2_loss(ret)
   return ret
